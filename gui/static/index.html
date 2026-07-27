@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MIDI Macros — SMC-PAD Pocket</title>
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <header class="panel-bar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div class="brand-text">
+        <h1>MIDI&nbsp;MACROS</h1>
+        <p class="device">SMC-PAD&nbsp;POCKET · 16 PADS</p>
+      </div>
+    </div>
+
+    <div class="transport">
+      <div class="svc" title="Estado do serviço">
+        <span class="led" id="svcLed"></span>
+        <span class="svc-label" id="svcLabel">—</span>
+      </div>
+      <div class="svc-btns">
+        <button class="btn ghost" data-svc="start">Ligar</button>
+        <button class="btn ghost" data-svc="stop">Desligar</button>
+        <button class="btn ghost" data-svc="restart">Reiniciar</button>
+      </div>
+      <button class="btn primary" id="saveAll" disabled>Salvar tudo</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- Chassi com o grid de pads -->
+    <section class="chassis" aria-label="Grade de pads">
+      <div class="chassis-head">
+        <span class="mono tick">PAD MATRIX</span>
+        <span class="mono tick dim">NOTE 36–51</span>
+      </div>
+      <div class="grid" id="grid"><!-- pads via JS --></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <!-- Editor lateral -->
+    <aside class="editor" id="editor" aria-live="polite">
+      <div class="editor-empty" id="editorEmpty">
+        <span class="ghost-pad" aria-hidden="true"></span>
+        <p>Selecione um pad para configurar a macro.</p>
+      </div>
+
+      <form class="editor-form" id="editorForm" hidden>
+        <div class="editor-head">
+          <span class="mono note-badge" id="edNote">36</span>
+          <input class="ed-label" id="edLabel" placeholder="Rótulo (ex.: Copiar)" maxlength="40">
+        </div>
+
+        <label class="field">
+          <span class="field-cap mono">TIPO DE AÇÃO</span>
+          <div class="seg" id="edType" role="tablist">
+            <button type="button" data-type="key">Tecla</button>
+            <button type="button" data-type="exec">Comando</button>
+            <button type="button" data-type="type">Texto</button>
+            <button type="button" data-type="">Vazio</button>
+          </div>
+        </label>
+
+        <!-- tecla -->
+        <div class="field pane" data-pane="key" hidden>
+          <span class="field-cap mono">ATALHO</span>
+          <div class="key-row">
+            <input class="mono ed-input" id="edKeys" placeholder="ctrl+c" spellcheck="false">
+            <button type="button" class="btn ghost sm" id="edCapture">Gravar</button>
+          </div>
+          <p class="hint" id="captureHint">Clique em “Gravar” e aperte a combinação no teclado.</p>
+        </div>
+
+        <!-- comando -->
+        <div class="field pane" data-pane="exec" hidden>
+          <span class="field-cap mono">COMANDO DE SHELL</span>
+          <input class="mono ed-input" id="edCmd" placeholder="firefox  ·  playerctl next" spellcheck="false">
+          <p class="hint">Roda no seu ambiente gráfico. Ex.: <code>code ~/projeto</code>.</p>
+        </div>
+
+        <!-- texto -->
+        <div class="field pane" data-pane="type" hidden>
+          <span class="field-cap mono">TEXTO A DIGITAR</span>
+          <input class="ed-input" id="edText" placeholder="meu@email.com" spellcheck="false">
+          <p class="hint">O pad digita este texto onde estiver o cursor.</p>
+        </div>
+
+        <div class="editor-actions">
+          <button type="button" class="btn test" id="edTest">Testar agora</button>
+          <button type="submit" class="btn primary">Aplicar pad</button>
+        </div>
+        <p class="warn mono" id="testWarn" hidden>⚠ Testar “tecla” digita na janela em foco (este navegador).</p>
+      </form>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
