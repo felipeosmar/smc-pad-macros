@@ -1,22 +1,31 @@
 {
-  "_comentario": "Mapa dos pads do SMC-PAD Pocket -> acoes. Edite a vontade (relido a cada toque). Tipos: key (atalho ydotool), type (digitar texto), exec (comando shell). As notas 36-51 correspondem aos 16 pads.",
+  "_comentario": "Mapa dos pads do SMC-PAD Pocket -> acoes (relido a cada toque). Tipos: key (atalho ydotool), type (digitar texto), exec (comando shell). Matriz 4x4 numerada da esquerda para a direita, de baixo para cima: linha de baixo = PAD 1-4, topo = PAD 13-16. NOTA MIDI = 35 + numero impresso (PAD 1 = 36 ... PAD 16 = 51), canal 10. Pads de OBS usam ~/work/transmissao-obs/scripts/obs-cmd.sh (obs-websocket). Pads sem entrada estao livres (aparecem como 'vazio' na GUI).",
   "device": "SMC-PAD Pocket",
   "pads": {
-    "36": { "type": "exec", "cmd": "playerctl play-pause",                              "label": "Play/Pause midia" },
-    "37": { "type": "exec", "cmd": "playerctl previous",                                "label": "Faixa anterior" },
-    "38": { "type": "exec", "cmd": "playerctl next",                                    "label": "Proxima faixa" },
-    "39": { "type": "exec", "cmd": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",        "label": "Mudo (toggle)" },
-    "40": { "type": "exec", "cmd": "wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%-",  "label": "Volume -" },
-    "41": { "type": "exec", "cmd": "wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+",  "label": "Volume +" },
-    "42": { "type": "key",  "keys": "ctrl+c",                                           "label": "Copiar" },
-    "43": { "type": "key",  "keys": "ctrl+v",                                           "label": "Colar" },
-    "44": { "type": "key",  "keys": "ctrl+z",                                           "label": "Desfazer" },
-    "45": { "type": "key",  "keys": "alt+Tab",                                          "label": "Alternar janela" },
-    "46": { "type": "key",  "keys": "super",                                            "label": "Atividades (GNOME)" },
-    "47": { "type": "key",  "keys": "print",                                            "label": "Captura de tela" },
-    "48": { "type": "exec", "cmd": "firefox",                                           "label": "Abrir Firefox" },
-    "49": { "type": "exec", "cmd": "gnome-terminal",                                    "label": "Abrir Terminal" },
-    "50": { "type": "exec", "cmd": "nautilus",                                          "label": "Abrir Arquivos" },
-    "51": { "type": "exec", "cmd": "bash ~/.config/midi-macros/scripts/exemplo.sh",     "label": "Script de exemplo" }
+    "36": {
+      "type": "exec",
+      "cmd": "~/work/transmissao-obs/scripts/obs-cmd.sh cena 'Apresentação'",
+      "label": "OBS: Apresentação (pad 1)"
+    },
+    "37": {
+      "type": "exec",
+      "cmd": "~/work/transmissao-obs/scripts/obs-cmd.sh cena 'Só câmera'",
+      "label": "OBS: Só câmera (pad 2)"
+    },
+    "38": {
+      "type": "exec",
+      "cmd": "~/work/transmissao-obs/scripts/obs-cmd.sh cena 'Só slides'",
+      "label": "OBS: Só slides (pad 3)"
+    },
+    "39": {
+      "type": "exec",
+      "cmd": "~/work/transmissao-obs/scripts/obs-cmd.sh limpar_rabiscos",
+      "label": "OBS: limpar rabiscos (pad 4)"
+    },
+    "51": {
+      "type": "exec",
+      "cmd": "~/work/transmissao-obs/scripts/obs-cmd.sh gravar_toggle",
+      "label": "OBS: gravar on/off (pad 16)"
+    }
   }
 }
