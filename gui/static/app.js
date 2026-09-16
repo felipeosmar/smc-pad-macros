@@ -206,7 +206,9 @@ async function testAction() {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: a }),
   });
-  toast(r.ok ? "Ação disparada ▶" : "Falha ao testar", r.ok ? "ok" : "err");
+  if (r.ok) return toast("Ação disparada ▶", "ok");
+  const motivo = await r.json().then(j => j.error).catch(() => null);
+  toast(motivo ? `Falha: ${motivo}` : "Falha ao testar", "err");
 }
 async function svc(action) {
   const r = await fetch("/api/service", {

@@ -62,7 +62,7 @@ categoria de ação.
 
 - Grade de 16 pads na mesma disposição física do controlador
 - Editor lateral com 4 tipos de ação: **Tecla**, **Comando**, **Texto** e **Vazio**
-- **Captura de atalho** — clique em "Gravar" e aperte a combinação; ela vira a sintaxe do `ydotool`
+- **Captura de atalho** — clique em "Gravar" e aperte a combinação; ela é gravada por nome (ex.: `ctrl+shift+t`)
 - **Testar agora** dispara a ação sem tocar no controlador
 - **Controle do serviço** (Ligar / Desligar / Reiniciar) com LED de estado ao vivo
 - **Salvar tudo** grava no mesmo `config.json` que o daemon lê
@@ -105,7 +105,35 @@ midi-macros-gui
 }
 ```
 
-- **`key`** — atalho de teclado. `keys` aceita `"ctrl+c"` ou uma lista `["ctrl+c","enter"]`.
+- **`key`** — atalho de teclado. `keys` aceita `"ctrl+c"` ou uma lista
+  `["ctrl+c","enter"]` (a lista é disparada em sequência).
+
+  Os nomes são traduzidos pelo daemon para os keycodes do Linux, porque o
+  `ydotool` 1.x só aceita pares `<keycode>:<pressionado>` — e ignora em silêncio
+  o que não entende. Nomes reconhecidos (tabela `KEYCODES` em `midi-macros.py`):
+
+  | Grupo | Nomes |
+  |---|---|
+  | Modificadores | `ctrl`, `shift`, `alt`, `super`/`meta`/`win`, `altgr`, e as variantes `left…`/`right…` |
+  | Letras e dígitos | `a`–`z`, `0`–`9` |
+  | Função | `f1`–`f24` |
+  | Edição/navegação | `enter`/`return`, `esc`, `backspace`, `tab`, `space`, `delete`, `insert`, `home`, `end`, `pageup`, `pagedown`, `up`, `down`, `left`, `right` |
+  | Travas e especiais | `print`/`printscreen`, `capslock`, `numlock`, `scrolllock`, `menu` |
+  | Pontuação (layout US) | `minus`, `equal`/`plus`, `leftbrace`, `rightbrace`, `semicolon`, `apostrophe`, `grave`, `backslash`, `comma`, `dot`/`period`, `slash` |
+  | Mídia | `volumeup`, `volumedown`, `mute`, `playpause`, `nextsong`, `previoussong`, `stopcd` |
+
+  Maiúsculas/minúsculas e espaços são ignorados (`CTRL + C` = `ctrl+c`). As teclas
+  são pressionadas na ordem escrita e soltas na ordem inversa. Um nome desconhecido
+  **não** é executado: vira erro no log do serviço e falha visível no botão
+  "Testar agora" da GUI.
+
+  A sintaxe crua do `ydotool` também é aceita e repassada intacta, para casos que
+  a tabela não cobre:
+
+  ```json
+  { "type": "key", "keys": "29:1 46:1 46:0 29:0", "label": "Copiar (keycodes)" }
+  ```
+
 - **`type`** — digita `text` literalmente onde o cursor estiver.
 - **`exec`** — roda `cmd` como comando de shell no seu ambiente gráfico.
 
@@ -127,24 +155,40 @@ sudo apt install ydotool playerctl alsa-utils   # aseqdump vem em alsa-utils
 # wpctl vem com o PipeWire (wireplumber)
 ```
 
-### 1. Permissão do `/dev/uinput` (para o ydotool)
+### 1. Permissão do `/dev/uinput` e o daemon `ydotoold`
 
-O `ydotool` precisa escrever em `/dev/uinput`. Crie a regra udev:
+O `ydotool` precisa escrever em `/dev/uinput`. O pacote do Debian/Ubuntu já
+instala a regra udev que libera isso para o grupo `input`
+(`/usr/lib/udev/rules.d/80-uinput.rules`) — **não é preciso criar regra à mão**.
+Falta apenas entrar no grupo:
 
 ```bash
-sudo tee /etc/udev/rules.d/99-uinput-perm.rules <<'EOF'
-KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
-EOF
-sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo usermod -aG input "$USER"     # relogue depois disto
 ```
 
+O `ydotool` não age sozinho: ele conversa com o daemon `ydotoold`, que o pacote
+entrega como serviço de usuário. Ative:
+
+```bash
+systemctl --user enable --now ydotool.service
+systemctl --user status ydotool.service
+```
+
+Sem o `ydotoold` rodando, os pads `key` e `type` falham silenciosamente — os
+pads `exec` continuam funcionando, porque não passam pelo `ydotool`.
+
 ### 2. Arquivos do projeto
 
-Coloque o projeto em `~/.config/midi-macros/`:
+O daemon e a GUI resolvem tudo a partir de `~/.config/midi-macros/`. Clone ali:
 
 ```bash
 git clone https://github.com/felipeosmar/smc-pad-macros.git ~/.config/midi-macros
+```
+
+Se preferir manter o repositório no seu diretório de trabalho, use um symlink:
+
+```bash
+ln -s ~/work/smc-pad-macros ~/.config/midi-macros
 ```
 
 ### 3. Serviço systemd (usuário)
@@ -154,7 +198,8 @@ git clone https://github.com/felipeosmar/smc-pad-macros.git ~/.config/midi-macro
 ```ini
 [Unit]
 Description=MIDI Macros — SMC-PAD Pocket controla macros do sistema
-After=graphical-session.target
+After=graphical-session.target ydotool.service
+Wants=ydotool.service
 PartOf=graphical-session.target
 
 [Service]
@@ -162,12 +207,15 @@ Type=simple
 ExecStart=/usr/bin/python3 %h/.config/midi-macros/midi-macros.py
 Restart=always
 RestartSec=3
-Environment=DISPLAY=:1
+Environment=DISPLAY=:0
 Environment=WAYLAND_DISPLAY=wayland-0
 
 [Install]
 WantedBy=graphical-session.target
 ```
+
+`DISPLAY` deve casar com a sua sessão — confira com
+`systemctl --user show-environment | grep -E 'DISPLAY|WAYLAND'`.
 
 Ative:
 
@@ -177,17 +225,42 @@ systemctl --user enable --now midi-macros.service
 systemctl --user status midi-macros.service
 ```
 
-### 4. Lançador da GUI (opcional)
+### 4. Lançador da GUI e ícone no menu
 
 `~/.local/bin/midi-macros-gui`:
 
 ```bash
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/midi-macros-gui <<'EOF'
 #!/usr/bin/env bash
-exec /usr/bin/python3 "$HOME/.config/midi-macros/gui/server.py"
+exec /usr/bin/python3 "$HOME/.config/midi-macros/gui/server.py" "$@"
+EOF
+chmod +x ~/.local/bin/midi-macros-gui
 ```
 
+Para o ícone **MIDI Macros** aparecer no menu de aplicativos:
+
 ```bash
-chmod +x ~/.local/bin/midi-macros-gui
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps
+install -m 644 ~/.config/midi-macros/gui/static/icon.svg \
+  ~/.local/share/icons/hicolor/scalable/apps/midi-macros.svg
+
+cat > ~/.local/share/applications/midi-macros.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=MIDI Macros
+GenericName=Configurador de macros MIDI
+Comment=Configura as macros dos pads do controlador MIDI
+Exec=midi-macros-gui
+Icon=midi-macros
+Terminal=false
+Categories=Utility;
+Keywords=midi;macro;pad;smc-pad;launchpad;atalho;
+StartupNotify=false
+EOF
+
+update-desktop-database ~/.local/share/applications
+gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
 ---
@@ -216,7 +289,7 @@ aseqdump -p "SMC-PAD Pocket"   # aperte os pads e veja os "Note on"
 | Sintoma | Causa provável |
 |---|---|
 | Pads não fazem nada | Serviço parado (`systemctl --user status midi-macros`) ou dispositivo desconectado (`aconnect -l`). |
-| `ydotool` falha silenciosamente | Sem permissão em `/dev/uinput` — refaça o passo 1 e **relogue**. |
+| Pad `key` não faz nada | Veja o log (`journalctl --user -u midi-macros -n 20`): nome de tecla desconhecido é recusado e registrado. Se não houver log, `ydotoold` está parado (`systemctl --user status ydotool`) ou você está fora do grupo `input` (`id -nG \| grep input`) — refaça o passo 1 e **relogue**. |
 | Atalho não chega no app certo | O `key` digita na janela em foco; a GUI avisa disso no botão de teste. |
 | GUI abre sem estilo | Verifique se `gui/static/` está completo (`index.html`, `style.css`, `app.js`). |
 

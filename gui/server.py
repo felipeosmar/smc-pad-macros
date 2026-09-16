@@ -126,7 +126,9 @@ class Handler(BaseHTTPRequestHandler):
                     action = cfg.get("pads", {}).get(str(body.get("note", "")))
                 if not action or not action.get("type"):
                     return self._json(404, {"error": "pad sem ação"})
-                _mm.run_action(action, ENV)
+                erro = _mm.run_action(action, ENV)
+                if erro:
+                    return self._json(400, {"error": erro})
                 return self._json(200, {"ok": True, "ran": action.get("label", "")})
 
             if p == "/api/service":
