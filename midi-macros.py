@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 import signal
+import threading
 
 CONFIG = os.path.expanduser("~/.config/midi-macros/config.json")
 
@@ -158,6 +159,57 @@ def run_action(action, env):
         return fail(f"tipo de ação desconhecido: {typ!r}")
 
 
+def client_alsa(device):
+    """Número do client ALSA do dispositivo, ou None se ele não estiver conectado."""
+    try:
+        with open("/proc/asound/seq/clients", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                m = re.match(r'\s*Client\s+(\d+)\s+:\s+"([^"]*)"', line)
+                if m and device in m.group(2):
+                    return int(m.group(1))
+    except OSError:
+        pass
+    return None
+
+
+def esperar_porta(device, stop, intervalo=3):
+    """Espera o dispositivo aparecer no ALSA antes de abrir o aseqdump.
+
+    Sem isso, com o pad desligado o laço externo reabriria o aseqdump a cada 3s e
+    encheria o journal de "porta MIDI encerrada".
+    """
+    avisou = False
+    while not stop["flag"]:
+        cid = client_alsa(device)
+        if cid is not None:
+            return cid
+        if not avisou:
+            log(f"{device} não está conectado; aguardando o dispositivo...")
+            avisou = True
+        time.sleep(intervalo)
+    return None
+
+
+def vigiar_porta(device, proc, stop, client_inicial, intervalo=5):
+    """Derruba o aseqdump quando o client ALSA do dispositivo muda.
+
+    O pad é Bluetooth e dorme por inatividade. Ao reconectar, o ALSA cria um client
+    NOVO; o aseqdump inscrito no anterior continua vivo, porém surdo, e não fecha o
+    stdout — então o laço de leitura nunca percebe e o retry existente jamais dispara.
+    Matar o processo faz o laço externo reconectar na porta nova.
+    """
+    while not stop["flag"] and proc.poll() is None:
+        time.sleep(intervalo)
+        atual = client_alsa(device)
+        if atual != client_inicial:
+            log(f"porta MIDI mudou (client {client_inicial} -> {atual}); reconectando")
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            return
+
+
 def main():
     env = build_env()
     load_config()
@@ -172,9 +224,14 @@ def main():
 
     log(f"iniciando — device MIDI: {device!r}")
     while not stop["flag"]:
+        client = esperar_porta(device, stop)
+        if stop["flag"]:
+            break
         proc = subprocess.Popen(["aseqdump", "-p", device],
                                 stdout=subprocess.PIPE, stderr=DEVNULL, text=True)
-        log(f"escutando {device}")
+        log(f"escutando {device} (client ALSA {client})")
+        threading.Thread(target=vigiar_porta, args=(device, proc, stop, client),
+                         daemon=True).start()
         try:
             for line in proc.stdout:
                 if stop["flag"]:
